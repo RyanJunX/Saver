@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>攒钱小助手 Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        /* === 1. CSS 变量定义 (亮色模式默认) === */
+        :root {
+            --primary: #059669;       /* 翡翠绿 */
+            --primary-dark: #047857;
+            --primary-light: #d1fae5;
+            --accent: #fbbf24;        /* 金币黄 */
+            --bg: #f3f4f6;            /* 浅灰背景 */
+            --card-bg: #ffffff;       /* 白卡片 */
+            --text-main: #1f2937;     /* 深黑字 */
+            --text-sub: #6b7280;      /* 灰字 */
+            --border: #e5e7eb;
+            --danger: #ef4444;
+            --radius: 16px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --chart-grid: #f3f4f6;
+        }
+
+        /* === 2. 暗色模式覆盖 (Dark Mode) === */
+        [data-theme="dark"] {
+            --primary: #10b981;       /* 稍亮的绿，在黑底更清晰 */
+            --primary-dark: #059669;
+            --primary-light: #064e3b; /* 深绿背景 */
+            --bg: #111827;            /* 深蓝黑背景 */
+            --card-bg: #1f2937;       /* 深灰卡片 */
+            --text-main: #f9fafb;     /* 亮白字 */
+            --text-sub: #9ca3af;      /* 浅灰字 */
+            --border: #374151;        /* 深色边框 */
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            --chart-grid: #374151;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+            transition: background-color 0.3s, color 0.3s; /* 平滑过渡 */
+        }
+
+        .app { max-width: 1200px; margin: 0 auto; position: relative; }
+
+        /* 主题切换按钮样式 */
+        .theme-toggle-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: var(--shadow);
+            transition: all 0.2s;
+            z-index: 10;
+        }
+        .theme-toggle-btn:hover { transform: scale(1.1); }
+
+        /* 头部 */
+        .header { text-align: center; margin-bottom: 30px; margin-top: 10px; }
+        .header h1 { margin: 0; color: var(--primary); font-size: 2rem; transition: color 0.3s; }
+        .subtitle { color: var(--text-sub); font-size: 0.95rem; margin-top: 5px; }
+
+        /* 核心网格 */
+        .dashboard-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 20px; }
+
+        /* 卡片通用 */
+        .panel {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            transition: background-color 0.3s, transform 0.2s;
+            border: 1px solid var(--border); /* 增加边框适配暗色模式 */
+        }
+        .panel:hover { transform: translateY(-2px); }
+        .panel h2 { 
+            margin-top: 0; font-size: 1.1rem; color: var(--text-sub); 
+            margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px; 
+        }
+
+        /* 布局区域 */
+        .area-progress { 
+            grid-column: span 12; 
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%); 
+            color: white; 
+            border: none;
+        }
+        .area-progress h2 { color: rgba(255,255,255,0.8); border-bottom-color: rgba(255,255,255,0.2); }
+        
+        .area-deposit { grid-column: span 12; }
+        @media (min-width: 768px) { .area-deposit { grid-column: span 4; } }
+        
+        .area-chart { grid-column: span 12; }
+        @media (min-width: 768px) { .area-chart { grid-column: span 8; } }
+        
+        .area-goals { grid-column: span 12; }
+        @media (min-width: 768px) { .area-goals { grid-column: span 6; } }
+        
+        .area-config { grid-column: span 12; }
+        @media (min-width: 768px) { .area-config { grid-column: span 6; } }
+        
+        .area-cloud { grid-column: span 12; border: 1px dashed var(--primary); background: rgba(5, 150, 105, 0.05); }
+
+        /* 统计 */
+        .stats { display: flex; justify-content: space-between; text-align: center; margin-bottom: 20px; }
+        .stats div { flex: 1; }
+        .stats span { display: block; font-size: 0.85rem; opacity: 0.9; }
+        .stats strong { display: block; font-size: 1.8rem; font-weight: 800; margin-top: 5px; }
+
+        /* 进度条 */
+        .bar { background: rgba(255,255,255,0.2); height: 16px; border-radius: 10px; overflow: hidden; margin-bottom: 15px; position: relative; }
+        .bar-fill {
+            background: var(--accent); height: 100%; width: 0%;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); position: relative;
+        }
+        .bar-fill::after {
+            content: ''; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+        /* 跑道 */
+        .emoji-track { position: relative; height: 30px; margin-bottom: 10px; }
+        .mascot { position: absolute; font-size: 24px; transition: left 0.5s ease; bottom: 0; transform: translateX(-50%); }
+        .motivate { text-align: center; font-size: 0.9rem; opacity: 0.9; font-style: italic; }
+
+        /* 表单 */
+        .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; }
+        label { display: block; font-size: 0.9rem; color: var(--text-sub); margin-bottom: 4px; }
+        input, select { 
+            width: 100%; padding: 10px 12px; 
+            border: 1px solid var(--border); 
+            background-color: var(--bg);
+            color: var(--text-main);
+            border-radius: 8px; font-size: 1rem; box-sizing: border-box; 
+        }
+        input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+        
+        .calc-hint {
+            font-size: 0.85rem; color: var(--primary); margin-top: 10px;
+            background: var(--primary-light); padding: 8px; border-radius: 6px; display: none;
+        }
+
+        /* 按钮 */
+        button { background-color: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+        button:hover { opacity: 0.9; }
+        button.danger { background-color: var(--danger); }
+        button.secondary { background-color: transparent; border: 1px solid var(--border); color: var(--text-main); }
+        button.secondary:hover { background-color: var(--bg); }
+
+        /* 列表 */
+        .deposit-row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .deposit-row input { flex: 1; font-size: 1.2rem; font-weight: bold; color: var(--primary); }
+        .list { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
+        .list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+        .log-amount { font-weight: bold; color: var(--primary); }
+
+        details summary { cursor: pointer; font-weight: bold; color: var(--primary); margin-bottom: 10px; }
+        .footer { text-align: center; margin-top: 40px; color: var(--text-sub); font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <button class="theme-toggle-btn" id="themeToggleBtn" title="切换亮/暗模式">🌞</button>
+
+    <header class="header">
+        <h1>💰 攒钱小助手 Pro</h1>
+        <div class="subtitle">积少成多，看着财富一点点增长</div>
+    </header>
+
+    <div class="dashboard-grid">
+        
+        <section class="panel area-progress">
+            <h2>当前进度</h2>
+            <div class="stats">
+                <div><span>已存总额</span><strong id="savedTotal">¥0</strong></div>
+                <div><span>目标金额</span><strong id="targetTotal">¥0</strong></div>
+                <div><span>完成率</span><strong id="percent">0%</strong></div>
+                <div><span>距离目标</span><strong id="remain">¥0</strong></div>
+            </div>
+            <div class="emoji-track"><div class="mascot" id="mascot">🚲</div></div>
+            <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+            <div class="motivate" id="motivate">千里之行，始于足下！</div>
+        </section>
+
+        <section class="panel area-deposit">
+            <h2>📝 记一笔</h2>
+            <div class="deposit-row">
+                <input type="number" id="depositAmount" min="0" step="1" placeholder="¥ 金额" />
+                <button id="addDeposit">存入!</button>
+            </div>
+            <h3>最近记录</h3>
+            <ul class="list" id="logList"></ul>
+        </section>
+
+        <section class="panel area-chart">
+            <h2>📈 财富增长曲线</h2>
+            <div style="height: 250px; position: relative;"><canvas id="growthChart"></canvas></div>
+        </section>
+
+        <section class="panel area-config">
+            <h2>⚙️ 计划设置</h2>
+            <div class="grid-form">
+                <div>
+                    <label>每日存入 (元)</label>
+                    <input type="number" id="dailyAmount" value="50" />
+                </div>
+                <div>
+                    <label>开始日期</label>
+                    <input type="date" id="startDate" />
+                </div>
+                <div>
+                    <label>截止日期 (可选)</label>
+                    <input type="date" id="endDate" />
+                </div>
+                <div>
+                    <label>总目标 (自动算)</label>
+                    <input type="number" id="targetAmount" placeholder="输入或自动计算" />
+                </div>
+                <div>
+                    <label>主题风格</label>
+                    <select id="theme">
+                        <option value="travel">✈️ 旅行</option>
+                        <option value="house">🏠 买房</option>
+                        <option value="digital">💻 数码</option>
+                    </select>
+                </div>
+            </div>
+            <div id="calcHint" class="calc-hint"></div>
+            <div class="actions" style="margin-top: 15px; display: flex; gap: 10px;">
+                <button id="saveConfig">保存设置</button>
+                <button id="resetAll" class="danger">重置</button>
+            </div>
+        </section>
+
+        <section class="panel area-goals">
+            <h2>🎯 愿望清单</h2>
+            <div class="deposit-row">
+                <input id="goalName" placeholder="例如：新款手机" />
+                <input id="goalTarget" type="number" placeholder="金额" style="width: 80px;" />
+                <button id="addGoalBtn" class="secondary">添加</button>
+            </div>
+            <ul id="goalsList" class="list"></ul>
+        </section>
+
+        <section class="panel area-cloud">
+            <details>
+                <summary>☁️ 云端同步 (Supabase)</summary>
+                <div class="grid-form" style="margin-top: 15px;">
+                    <input id="supaUrl" placeholder="Project URL" />
+                    <input id="supaAnon" placeholder="Anon Key" />
+                    <input id="supaEmail" type="email" placeholder="Email" />
+                </div>
+                <div style="margin-top: 10px; display:flex; gap:5px;">
+                    <button id="cloudLogin" class="secondary">登录</button>
+                    <button id="syncUp" class="secondary">上传本地</button>
+                    <button id="syncDown" class="secondary">下载云端</button>
+                </div>
+            </details>
+        </section>
+    </div>
+    <footer class="footer">数据优先存储于本地 LocalStorage | 攒钱小助手 V2.2</footer>
+</div>
+
+<script>
+    // === 1. 数据管理 ===
+    const APP_KEY = 'money_tracker_v2';
+    const THEME_KEY = 'money_tracker_theme_mode'; // 专门存亮暗模式
+    
+    let appData = {
+        config: {
+            daily: 50,
+            target: 10000,
+            start: new Date().toISOString().split('T')[0],
+            end: '',
+            theme: 'travel'
+        },
+        logs: [],
+        goals: []
+    };
+    let growthChartInstance = null;
+
+    // === 2. 初始化 ===
+    document.addEventListener('DOMContentLoaded', () => {
+        loadData();
+        initTheme(); // 初始化主题
+        setupEventListeners();
+        setupAutoCalc();
+        renderAll();
+    });
+
+    // --- 主题逻辑 Start ---
+    function initTheme() {
+        const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
+        applyTheme(savedTheme);
+        
+        document.getElementById('themeToggleBtn').addEventListener('click', () => {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            applyTheme(next);
+            localStorage.setItem(THEME_KEY, next);
+        });
+    }
+
+    function applyTheme(themeName) {
+        document.documentElement.setAttribute('data-theme', themeName);
+        const btn = document.getElementById('themeToggleBtn');
+        btn.innerText = themeName === 'dark' ? '🌙' : '🌞';
+        
+        // 重新渲染图表以适配颜色
+        if(appData.logs.length > 0) {
+            renderChart(appData.logs);
+        }
+    }
+    // --- 主题逻辑 End ---
+
+    function loadData() {
+        const saved = localStorage.getItem(APP_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            appData = { ...appData, ...parsed };
+            if (!appData.logs) appData.logs = [];
+        }
+        document.getElementById('dailyAmount').value = appData.config.daily;
+        document.getElementById('targetAmount').value = appData.config.target || '';
+        document.getElementById('startDate').value = appData.config.start;
+        document.getElementById('endDate').value = appData.config.end || '';
+        document.getElementById('theme').value = appData.config.theme || 'travel';
+    }
+
+    function saveData() {
+        localStorage.setItem(APP_KEY, JSON.stringify(appData));
+        renderAll();
+    }
+
+    // === 3. 自动计算逻辑 ===
+    function setupAutoCalc() {
+        const ids = ['dailyAmount', 'startDate', 'endDate'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            el.addEventListener('input', calculateTargetTotal);
+            el.addEventListener('change', calculateTargetTotal);
+        });
+    }
+
+    function calculateTargetTotal() {
+        const daily = parseFloat(document.getElementById('dailyAmount').value) || 0;
+        const startStr = document.getElementById('startDate').value;
+        const endStr = document.getElementById('endDate').value;
+        const hintEl = document.getElementById('calcHint');
+        const targetInput = document.getElementById('targetAmount');
+
+        if (daily > 0 && startStr && endStr) {
+            const startDate = new Date(startStr);
+            const endDate = new Date(endStr);
+            if (endDate >= startDate) {
+                const diffTime = Math.abs(endDate - startDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+                const total = diffDays * daily;
+                targetInput.value = total;
+                hintEl.style.display = 'block';
+                hintEl.innerHTML = `💡 自动计算：${diffDays} 天 × ¥${daily} = <strong>¥${total}</strong>`;
+                return;
+            }
+        }
+        hintEl.style.display = 'none';
+    }
+
+    // === 4. 渲染逻辑 ===
+    function renderAll() {
+        const totalSaved = appData.logs.reduce((sum, item) => sum + Number(item.amount), 0);
+        const target = Number(appData.config.target) || 10000;
+        const percent = Math.min(100, Math.round((totalSaved / target) * 100));
+        const remain = Math.max(0, target - totalSaved);
+
+        document.getElementById('savedTotal').innerText = `¥${totalSaved.toLocaleString()}`;
+        document.getElementById('targetTotal').innerText = `¥${target.toLocaleString()}`;
+        document.getElementById('percent').innerText = `${percent}%`;
+        document.getElementById('remain').innerText = `¥${remain.toLocaleString()}`;
+        document.getElementById('barFill').style.width = `${percent}%`;
+
+        const themeMap = { 'travel': '✈️', 'house': '🏠', 'digital': '💻' };
+        const icon = themeMap[appData.config.theme] || '💰';
+        const mascot = document.getElementById('mascot');
+        mascot.innerText = icon;
+        mascot.style.left = `${percent}%`;
+
+        const motivateText = document.getElementById('motivate');
+        if (percent >= 100) motivateText.innerText = "🎉 目标达成！太棒了！";
+        else if (percent > 0) motivateText.innerText = "🚀 正在轨道上，继续保持！";
+        else motivateText.innerText = "🏁 设定好目标，存入第一笔吧！";
+
+        renderLogs();
+        renderGoals();
+        renderChart(appData.logs);
+    }
+
+    function renderLogs() {
+        const list = document.getElementById('logList');
+        list.innerHTML = '';
+        const recentLogs = [...appData.logs].sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
+        recentLogs.forEach(log => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span style="color:var(--text-sub)">${new Date(log.timestamp).toLocaleDateString()}</span><span class="log-amount">+¥${log.amount}</span>`;
+            list.appendChild(li);
+        });
+    }
+
+    function renderGoals() {
+        const list = document.getElementById('goalsList');
+        list.innerHTML = '';
+        appData.goals.forEach((g, index) => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span>${g.name}</span><span style="color:var(--text-sub)">¥${g.cost}</span><button onclick="removeGoal(${index})" style="padding:2px 6px;margin-left:10px;" class="secondary">×</button>`;
+            list.appendChild(li);
+        });
+    }
+
+    // === 5. Chart.js 图表 (适配主题) ===
+    function renderChart(logs) {
+        const ctx = document.getElementById('growthChart').getContext('2d');
+        const sortedLogs = [...logs].sort((a, b) => a.timestamp - b.timestamp);
+        
+        const labels = [];
+        const dataPoints = [];
+        let cumulative = 0;
+
+        sortedLogs.forEach(log => {
+            const dateStr = new Date(log.timestamp).toLocaleDateString();
+            cumulative += Number(log.amount);
+            if (!labels.includes(dateStr)) {
+                labels.push(dateStr);
+                dataPoints.push(cumulative);
+            } else {
+                dataPoints[dataPoints.length - 1] = cumulative;
+            }
+        });
+
+        if (growthChartInstance) growthChartInstance.destroy();
+
+        // 获取当前 CSS 变量颜色，使图表跟随主题
+        const style = getComputedStyle(document.documentElement);
+        const gridColor = style.getPropertyValue('--chart-grid').trim();
+        const textColor = style.getPropertyValue('--text-sub').trim();
+        const primaryColor = style.getPropertyValue('--primary').trim();
+
+        growthChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '资产累计',
+                    data: dataPoints,
+                    borderColor: primaryColor,
+                    backgroundColor: primaryColor + '20', // 加透明度
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: {display: false} },
+                scales: {
+                    x: { 
+                        display: labels.length > 1, 
+                        grid: { display: false },
+                        ticks: { color: textColor }
+                    },
+                    y: { 
+                        beginAtZero: true, 
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    }
+                }
+            }
+        });
+    }
+
+    // === 6. 事件监听 ===
+    function setupEventListeners() {
+        document.getElementById('addDeposit').addEventListener('click', () => {
+            const input = document.getElementById('depositAmount');
+            const amount = Number(input.value);
+            if (amount <= 0) return alert("请输入有效金额");
+            appData.logs.push({ amount, timestamp: Date.now() });
+            input.value = '';
+            saveData();
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        });
+
+        document.getElementById('saveConfig').addEventListener('click', () => {
+            appData.config.daily = document.getElementById('dailyAmount').value;
+            appData.config.target = document.getElementById('targetAmount').value;
+            appData.config.start = document.getElementById('startDate').value;
+            appData.config.end = document.getElementById('endDate').value;
+            appData.config.theme = document.getElementById('theme').value;
+            saveData();
+            alert("设置已更新 ✅");
+        });
+
+        document.getElementById('addGoalBtn').addEventListener('click', () => {
+            const name = document.getElementById('goalName').value;
+            const cost = document.getElementById('goalTarget').value;
+            if(name && cost) {
+                appData.goals.push({name, cost});
+                document.getElementById('goalName').value = '';
+                document.getElementById('goalTarget').value = '';
+                saveData();
+            }
+        });
+
+        document.getElementById('resetAll').addEventListener('click', () => {
+            if(confirm("确定要清空所有数据吗？")) {
+                localStorage.removeItem(APP_KEY);
+                location.reload();
+            }
+        });
+        
+        document.getElementById('cloudLogin').addEventListener('click', () => alert("云同步需配置 Supabase Key"));
+    }
+
+    window.removeGoal = function(index) {
+        appData.goals.splice(index, 1);
+        saveData();
+    }
+</script>
+</body>
+</html>
