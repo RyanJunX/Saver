@@ -2,112 +2,87 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
     <title>攒钱小助手 Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <style>
-        /* === 1. CSS 变量定义 === */
+        /* === 1. 基础变量 === */
         :root {
             --primary: #059669;
-            --primary-dark: #047857;
-            --primary-light: #d1fae5;
+            --primary-bg: #d1fae5;
             --accent: #fbbf24;
             --bg: #f3f4f6;
             --card-bg: #ffffff;
             --text-main: #1f2937;
             --text-sub: #6b7280;
             --border: #e5e7eb;
-            --danger: #ef4444;
             --radius: 16px;
-            /* 阴影稍微调淡，适应手机看起来更轻盈 */
-            --shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.08); 
-            --chart-grid: #f3f4f6;
+            --shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.08);
         }
 
         [data-theme="dark"] {
-            --primary: #10b981;
-            --primary-dark: #059669;
-            --primary-light: #064e3b;
-            --bg: #000000; /* 手机 OLED 屏幕纯黑更省电 */
-            --card-bg: #1c1c1e; /* iOS 风格深灰 */
+            --primary: #34d399;
+            --primary-bg: #064e3b;
+            --bg: #000000; /* 纯黑省电 */
+            --card-bg: #1c1c1e;
             --text-main: #f2f2f7;
             --text-sub: #8e8e93;
             --border: #2c2c2e;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-            --chart-grid: #2c2c2e;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
         }
 
+        /* === 2. 全局布局 (Mobile First) === */
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
             background-color: var(--bg);
             color: var(--text-main);
             margin: 0;
-            /* 适配 iPhone 安全区域 */
-            padding: max(16px, env(safe-area-inset-top)) 16px max(30px, env(safe-area-inset-bottom)) 16px;
+            /* 适配 iPhone 底部黑条和顶部刘海 */
+            padding: max(12px, env(safe-area-inset-top)) 16px max(30px, env(safe-area-inset-bottom)) 16px;
             line-height: 1.5;
-            transition: background-color 0.3s, color 0.3s;
-            -webkit-tap-highlight-color: transparent; /* 移除点击高亮 */
+            -webkit-tap-highlight-color: transparent;
         }
 
         .app { max-width: 1000px; margin: 0 auto; position: relative; }
 
-        /* 主题切换按钮 - 调整位置避免遮挡 */
+        /* 悬浮按钮 */
         .theme-toggle-btn {
-            position: absolute;
-            top: 0;
-            right: 0;
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.1rem;
-            box-shadow: var(--shadow);
-            z-index: 10;
+            position: absolute; top: 0; right: 0;
+            width: 36px; height: 36px; border-radius: 50%;
+            background: var(--card-bg); border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; box-shadow: var(--shadow); cursor: pointer; z-index: 10;
         }
 
-        .header { text-align: center; margin-bottom: 20px; margin-top: 5px; }
-        .header h1 { margin: 0; color: var(--primary); font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; }
-        .subtitle { color: var(--text-sub); font-size: 0.85rem; margin-top: 4px; }
+        .header { text-align: center; margin-bottom: 20px; padding-top: 10px; }
+        .header h1 { margin: 0; color: var(--primary); font-size: 1.5rem; letter-spacing: -0.5px; }
+        .subtitle { font-size: 0.8rem; color: var(--text-sub); opacity: 0.8; }
 
-        /* 核心布局 */
-        .dashboard-grid { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 16px; 
-        }
+        /* 核心网格 - 手机上是单列垂直堆叠 */
+        .dashboard-grid { display: flex; flex-direction: column; gap: 16px; }
 
-        /* 卡片优化 */
+        /* 卡片通用样式 */
         .panel {
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            padding: 20px; /* 手机上稍微减小内边距 */
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border);
+            background: var(--card-bg); border-radius: var(--radius); padding: 20px;
+            box-shadow: var(--shadow); border: 1px solid var(--border);
         }
-        
         .panel h2 { 
-            margin-top: 0; font-size: 1rem; font-weight: 600; color: var(--text-sub); 
-            margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; 
-            display: flex; align-items: center; justify-content: space-between;
+            margin: 0 0 15px 0; font-size: 1rem; color: var(--text-sub); 
+            border-bottom: 1px solid var(--border); padding-bottom: 8px; font-weight: 600; 
         }
 
-        /* 进度卡片 */
+        /* === 3. 针对手机优化的模块 === */
+
+        /* A. 顶部进度卡片 */
         .area-progress { 
-            background: linear-gradient(145deg, var(--primary-dark) 0%, var(--primary) 100%); 
+            background: linear-gradient(135deg, #059669 0%, #047857 100%); 
             color: white; border: none;
-            padding-bottom: 24px;
         }
-        .area-progress h2 { color: rgba(255,255,255,0.8); border-bottom-color: rgba(255,255,255,0.15); }
-        
-        /* 关键改动：统计区域改为 2x2 网格 */
+        .area-progress h2 { color: rgba(255,255,255,0.8); border-color: rgba(255,255,255,0.2); }
+
+        /* 重点：手机上改成 2x2 网格，解决数字重叠问题 */
         .stats { 
             display: grid; 
             grid-template-columns: 1fr 1fr; 
@@ -115,90 +90,54 @@
             text-align: center; 
             margin-bottom: 20px; 
         }
-        .stats span { display: block; font-size: 0.8rem; opacity: 0.85; margin-bottom: 2px; }
+        .stats span { display: block; font-size: 0.75rem; opacity: 0.8; margin-bottom: 2px; }
         .stats strong { display: block; font-size: 1.4rem; font-weight: 700; line-height: 1.1; }
 
-        /* 进度条 */
-        .bar { background: rgba(255,255,255,0.2); height: 12px; border-radius: 6px; overflow: hidden; margin-bottom: 15px; position: relative; }
-        .bar-fill {
-            background: var(--accent); height: 100%; width: 0%;
-            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); position: relative;
-        }
-        .bar-fill::after {
-            content: ''; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-            animation: shimmer 2s infinite;
-        }
-        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .bar { background: rgba(255,255,255,0.2); height: 12px; border-radius: 6px; overflow: hidden; margin-bottom: 15px; }
+        .bar-fill { background: var(--accent); height: 100%; width: 0%; transition: width 0.5s; }
+        .emoji-track { height: 24px; position: relative; margin-bottom: 5px; }
+        .mascot { position: absolute; font-size: 20px; transition: left 0.5s; bottom: 0; transform: translateX(-50%); }
 
-        /* 吉祥物跑道 */
-        .emoji-track { position: relative; height: 24px; margin-bottom: 8px; }
-        .mascot { position: absolute; font-size: 22px; transition: left 0.5s ease; bottom: 0; transform: translateX(-50%); }
-        .motivate { text-align: center; font-size: 0.85rem; opacity: 0.9; font-weight: 500; }
-
-        /* 输入区域优化：上下排列 */
-        .deposit-row { 
-            display: flex; 
-            flex-direction: column; /* 手机默认上下排列 */
-            gap: 10px; 
-            margin-bottom: 15px; 
-        }
+        /* B. 记一笔 (输入框) */
+        /* 重点：手机上改为垂直排列，按钮全宽，更好按 */
+        .deposit-row { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
         .deposit-row input { 
-            flex: 1; 
-            font-size: 1.1rem; 
-            font-weight: bold; 
-            color: var(--primary); 
-            padding: 12px; /* 加大触摸区域 */
+            padding: 12px; font-size: 1.2rem; font-weight: bold; color: var(--primary); 
+            border-radius: 12px; text-align: center;
         }
-        /* 按钮加高，方便点击 */
+        
         button { 
-            padding: 12px 16px; 
-            border-radius: 10px; 
-            font-size: 1rem;
-            font-weight: 600; 
-            background-color: var(--primary); 
-            color: white; border: none; cursor: pointer; 
-            transition: opacity 0.2s; 
-            width: 100%; /* 默认全宽 */
+            padding: 12px; border-radius: 12px; border: none; 
+            background: var(--primary); color: white; font-weight: 600; font-size: 1rem;
+            width: 100%; cursor: pointer;
         }
-        button:active { transform: scale(0.98); }
-        button.secondary { background-color: transparent; border: 1px solid var(--border); color: var(--text-main); }
-        button.danger { background-color: var(--danger); color: white; }
+        button:active { transform: scale(0.98); opacity: 0.9; }
+        button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
 
-        /* 列表优化 */
-        .list { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
-        .list li { 
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.95rem; 
-        }
-        .list li:last-child { border-bottom: none; }
-        .log-amount { font-weight: bold; color: var(--primary); font-size: 1rem; }
-
-        /* 表单网格 */
-        .grid-form { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; /* 2列 */
-            gap: 12px; 
-        }
-        .grid-form > div { grid-column: span 2; } /* 默认每行一个 */
-        /* 日期选择器每行两个 */
+        /* C. 设置表单 */
+        .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .grid-form > div { grid-column: span 2; } /* 默认占满一行 */
+        /* 日期选择器让它并排，节省空间 */
         .grid-form > div:nth-child(2), .grid-form > div:nth-child(3) { grid-column: span 1; }
 
-        label { display: block; font-size: 0.85rem; color: var(--text-sub); margin-bottom: 6px; }
+        label { display: block; font-size: 0.8rem; color: var(--text-sub); margin-bottom: 4px; }
         input, select { 
-            width: 100%; padding: 10px; 
-            border: 1px solid var(--border); 
-            background-color: var(--bg); color: var(--text-main);
-            border-radius: 10px; font-size: 1rem; box-sizing: border-box; 
-            -webkit-appearance: none; /* 移除 iOS 默认样式 */
+            width: 100%; padding: 10px; border: 1px solid var(--border); 
+            background: var(--bg); color: var(--text-main); border-radius: 10px; 
+            box-sizing: border-box; font-size: 1rem;
+            -webkit-appearance: none; /* 移除iOS默认样式 */
         }
 
-        .calc-hint {
-            font-size: 0.85rem; color: var(--primary); margin-top: 10px;
-            background: var(--primary-light); padding: 10px; border-radius: 8px; display: none;
+        /* D. 列表优化 */
+        .list { list-style: none; padding: 0; margin: 0; }
+        .list li { 
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 0.95rem;
         }
+        .list li:last-child { border-bottom: none; }
 
-        /* === 平板/桌面端适配 (还原宽屏布局) === */
+        /* === 4. 电脑/平板端适配 (Media Queries) === */
+        /* 当屏幕宽度大于 768px 时，自动切换为宽屏布局 */
         @media (min-width: 768px) {
             body { padding: 20px; }
             .dashboard-grid { 
@@ -206,11 +145,17 @@
                 grid-template-columns: repeat(12, 1fr); 
                 gap: 20px; 
             }
-            .stats { display: flex; text-align: center; }
-            .stats strong { font-size: 1.8rem; }
-            .deposit-row { flex-direction: row; }
-            button { width: auto; } /* 桌面端按钮取消全宽 */
             
+            /* 恢复横向统计 */
+            .stats { display: flex; gap: 0; text-align: center; }
+            .stats strong { font-size: 1.8rem; }
+            
+            /* 恢复横向按钮 */
+            .deposit-row { flex-direction: row; }
+            .deposit-row input { text-align: left; }
+            button { width: auto; padding: 10px 20px; }
+
+            /* 卡片布局分配 */
             .area-progress { grid-column: span 12; }
             .area-deposit { grid-column: span 4; }
             .area-chart { grid-column: span 8; }
@@ -218,25 +163,25 @@
             .area-goals { grid-column: span 6; }
             .area-cloud { grid-column: span 12; }
             
+            /* 表单变回单列 */
             .grid-form > div { grid-column: span 1; }
         }
 
-        .footer { text-align: center; margin-top: 30px; color: var(--text-sub); font-size: 0.75rem; opacity: 0.6; }
-        details summary { padding: 5px 0; font-size: 0.9rem; }
+        .calc-hint { font-size: 0.8rem; color: var(--primary); background: var(--primary-bg); padding: 8px; border-radius: 6px; margin-top:10px; display:none; }
+        .footer { text-align: center; font-size: 0.75rem; color: var(--text-sub); margin-top: 30px; opacity: 0.6; }
     </style>
 </head>
 <body>
 
 <div class="app">
-    <button class="theme-toggle-btn" id="themeToggleBtn" title="切换模式">🌞</button>
+    <button class="theme-toggle-btn" id="themeToggleBtn">🌞</button>
 
     <header class="header">
         <h1>💰 攒钱小助手 Pro</h1>
-        <div class="subtitle">积少成多，财富增长</div>
+        <div class="subtitle">自适应布局 V3.1</div>
     </header>
 
     <div class="dashboard-grid">
-        
         <section class="panel area-progress">
             <h2>当前进度</h2>
             <div class="stats">
@@ -247,45 +192,32 @@
             </div>
             <div class="emoji-track"><div class="mascot" id="mascot">🚲</div></div>
             <div class="bar"><div class="bar-fill" id="barFill"></div></div>
-            <div class="motivate" id="motivate">千里之行，始于足下！</div>
+            <div style="text-align: center; font-size: 0.9rem; opacity: 0.9;" id="motivate">加载中...</div>
         </section>
 
         <section class="panel area-deposit">
             <h2>📝 记一笔</h2>
             <div class="deposit-row">
-                <input type="number" id="depositAmount" min="0" step="1" placeholder="输入金额 (¥)" inputmode="decimal" />
-                <button id="addDeposit">存入!</button>
+                <input type="number" id="depositAmount" placeholder="输入金额" inputmode="decimal"/>
+                <button id="addDeposit">存入</button>
             </div>
             <h3>最近记录</h3>
             <ul class="list" id="logList"></ul>
         </section>
 
         <section class="panel area-chart">
-            <h2>📈 趋势曲线</h2>
-            <div style="height: 220px; position: relative;"><canvas id="growthChart"></canvas></div>
+            <h2>📈 财富曲线</h2>
+            <div style="height: 200px;"><canvas id="growthChart"></canvas></div>
         </section>
 
         <section class="panel area-config">
             <h2>⚙️ 计划设置</h2>
             <div class="grid-form">
-                <div>
-                    <label>每日计划 (元)</label>
-                    <input type="number" id="dailyAmount" inputmode="decimal"/>
-                </div>
-                <div>
-                    <label>总目标 (自动算)</label>
-                    <input type="number" id="targetAmount" placeholder="金额" inputmode="decimal"/>
-                </div>
-                <div>
-                    <label>开始日期</label>
-                    <input type="date" id="startDate" />
-                </div>
-                <div>
-                    <label>截止日期</label>
-                    <input type="date" id="endDate" />
-                </div>
-                <div>
-                    <label>主题风格</label>
+                <div><label>每日存入 (元)</label><input type="number" id="dailyAmount" inputmode="decimal"/></div>
+                <div><label>开始日期</label><input type="date" id="startDate" /></div>
+                <div><label>截止日期</label><input type="date" id="endDate" /></div>
+                <div><label>总目标 (自动算)</label><input type="number" id="targetAmount" inputmode="decimal"/></div>
+                <div><label>主题风格</label>
                     <select id="theme">
                         <option value="travel">✈️ 旅行</option>
                         <option value="house">🏠 买房</option>
@@ -294,9 +226,9 @@
                 </div>
             </div>
             <div id="calcHint" class="calc-hint"></div>
-            <div class="actions" style="margin-top: 20px; display: flex; gap: 12px;">
+            <div style="margin-top:15px; display:flex; gap:10px;">
                 <button id="saveConfig">保存设置</button>
-                <button id="resetAll" class="secondary danger" style="color: var(--danger); border-color: var(--danger);">重置</button>
+                <button id="resetAll" class="secondary" style="color:var(--text-sub)">重置</button>
             </div>
         </section>
 
@@ -307,88 +239,57 @@
                 <input id="goalTarget" type="number" placeholder="金额" inputmode="decimal" />
                 <button id="addGoalBtn" class="secondary">添加</button>
             </div>
-            <ul id="goalsList" class="list"></ul>
-        </section>
-
-        <section class="panel area-cloud">
-            <details>
-                <summary>☁️ 云端同步 (Supabase)</summary>
-                <div style="display:flex; flex-direction:column; gap:10px; margin-top:15px;">
-                    <input id="supaUrl" placeholder="Project URL" />
-                    <input id="supaAnon" placeholder="Anon Key" />
-                    <input id="supaEmail" type="email" placeholder="Email" />
-                    
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:5px;">
-                        <button id="cloudLogin" class="secondary">登录</button>
-                        <button id="syncUp" class="secondary">上传</button>
-                        <button id="syncDown" class="secondary">下载</button>
-                    </div>
-                </div>
-            </details>
+            <ul class="list" id="goalsList"></ul>
         </section>
     </div>
-    <footer class="footer">攒钱小助手 V3.0 (iOS Optimized)</footer>
+
+    <footer class="footer">数据存储在本地 LocalStorage</footer>
 </div>
 
 <script>
-    // === 1. 数据管理 ===
-    const APP_KEY = 'money_tracker_v2';
-    const THEME_KEY = 'money_tracker_theme_mode'; 
-    
-    let appData = {
-        config: {
-            daily: 50,
-            target: 10000,
-            start: new Date().toISOString().split('T')[0],
-            end: '',
-            theme: 'travel'
-        },
-        logs: [],
-        goals: []
-    };
-    let growthChartInstance = null;
+    // === 逻辑部分 (保持 V3 功能不变) ===
+    const APP_KEY = 'money_tracker_v3';
+    const OLD_KEY = 'saver.v3';
+    const THEME_KEY = 'money_tracker_theme';
 
-    // === 2. 初始化 ===
+    let appData = {
+        config: { daily: 50, target: 10000, start: new Date().toISOString().slice(0,10), end: '', theme: 'travel' },
+        logs: [], goals: []
+    };
+    let chartInstance = null;
+
     document.addEventListener('DOMContentLoaded', () => {
-        loadData();
-        initTheme();
-        setupEventListeners();
-        setupAutoCalc();
-        renderAll();
+        tryMigrateData(); loadData(); initTheme(); renderAll(); setupEvents();
     });
 
-    // --- 主题逻辑 ---
-    function initTheme() {
-        const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
-        applyTheme(savedTheme);
-        
-        document.getElementById('themeToggleBtn').addEventListener('click', () => {
-            const current = document.documentElement.getAttribute('data-theme');
-            const next = current === 'dark' ? 'light' : 'dark';
-            applyTheme(next);
-            localStorage.setItem(THEME_KEY, next);
-        });
-    }
-
-    function applyTheme(themeName) {
-        document.documentElement.setAttribute('data-theme', themeName);
-        const btn = document.getElementById('themeToggleBtn');
-        btn.innerText = themeName === 'dark' ? '🌙' : '🌞';
-        if(appData.logs.length > 0) renderChart(appData.logs);
+    function tryMigrateData() {
+        if (localStorage.getItem(APP_KEY)) return;
+        const oldRaw = localStorage.getItem(OLD_KEY);
+        if (oldRaw) {
+            try {
+                const old = JSON.parse(oldRaw);
+                if (old.entries) appData.logs = old.entries.map(e => ({ amount: e.amount, timestamp: new Date(e.t).getTime() }));
+                if (old.goals && old.goals[0]) {
+                    appData.config.target = old.goals[0].target;
+                    appData.config.start = old.goals[0].start ? old.goals[0].start.slice(0,10) : '';
+                }
+                saveData();
+            } catch(e){}
+        }
     }
 
     function loadData() {
         const saved = localStorage.getItem(APP_KEY);
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            appData = { ...appData, ...parsed };
-            if (!appData.logs) appData.logs = [];
-        }
+        if (saved) appData = { ...appData, ...JSON.parse(saved) };
+        updateInputs();
+    }
+
+    function updateInputs(){
         document.getElementById('dailyAmount').value = appData.config.daily;
-        document.getElementById('targetAmount').value = appData.config.target || '';
+        document.getElementById('targetAmount').value = appData.config.target;
         document.getElementById('startDate').value = appData.config.start;
-        document.getElementById('endDate').value = appData.config.end || '';
-        document.getElementById('theme').value = appData.config.theme || 'travel';
+        document.getElementById('endDate').value = appData.config.end;
+        document.getElementById('theme').value = appData.config.theme;
     }
 
     function saveData() {
@@ -396,198 +297,133 @@
         renderAll();
     }
 
-    // === 3. 自动计算逻辑 ===
-    function setupAutoCalc() {
-        const ids = ['dailyAmount', 'startDate', 'endDate'];
-        ids.forEach(id => {
-            const el = document.getElementById(id);
-            el.addEventListener('input', calculateTargetTotal);
-            el.addEventListener('change', calculateTargetTotal);
-        });
-    }
-
-    function calculateTargetTotal() {
-        const daily = parseFloat(document.getElementById('dailyAmount').value) || 0;
-        const startStr = document.getElementById('startDate').value;
-        const endStr = document.getElementById('endDate').value;
-        const hintEl = document.getElementById('calcHint');
-        const targetInput = document.getElementById('targetAmount');
-
-        if (daily > 0 && startStr && endStr) {
-            const startDate = new Date(startStr);
-            const endDate = new Date(endStr);
-            if (endDate >= startDate) {
-                const diffTime = Math.abs(endDate - startDate);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
-                const total = diffDays * daily;
-                targetInput.value = total;
-                hintEl.style.display = 'block';
-                hintEl.innerHTML = `💡 自动计算：${diffDays} 天 × ¥${daily} = <strong>¥${total}</strong>`;
-                return;
-            }
-        }
-        hintEl.style.display = 'none';
-    }
-
-    // === 4. 渲染逻辑 ===
     function renderAll() {
-        const totalSaved = appData.logs.reduce((sum, item) => sum + Number(item.amount), 0);
+        const total = appData.logs.reduce((sum, item) => sum + Number(item.amount), 0);
         const target = Number(appData.config.target) || 10000;
-        const percent = Math.min(100, Math.round((totalSaved / target) * 100));
-        const remain = Math.max(0, target - totalSaved);
+        const pct = Math.min(100, Math.round((total / target) * 100));
+        const remain = Math.max(0, target - total);
 
-        document.getElementById('savedTotal').innerText = `¥${totalSaved.toLocaleString()}`;
+        document.getElementById('savedTotal').innerText = `¥${total.toLocaleString()}`;
         document.getElementById('targetTotal').innerText = `¥${target.toLocaleString()}`;
-        document.getElementById('percent').innerText = `${percent}%`;
+        document.getElementById('percent').innerText = `${pct}%`;
         document.getElementById('remain').innerText = `¥${remain.toLocaleString()}`;
-        document.getElementById('barFill').style.width = `${percent}%`;
+        
+        document.getElementById('barFill').style.width = `${pct}%`;
+        document.getElementById('mascot').style.left = `${pct}%`;
+        
+        const icons = {'travel':'✈️','house':'🏠','digital':'💻'};
+        document.getElementById('mascot').innerText = icons[appData.config.theme] || '💰';
+        
+        const msgs = pct >= 100 ? "🎉 目标达成！太棒了！" : pct > 50 ? "🚀 已经过半了，继续加油！" : "🌱 千里之行，始于足下";
+        document.getElementById('motivate').innerText = msgs;
 
-        const themeMap = { 'travel': '✈️', 'house': '🏠', 'digital': '💻' };
-        const icon = themeMap[appData.config.theme] || '💰';
-        const mascot = document.getElementById('mascot');
-        mascot.innerText = icon;
-        mascot.style.left = `${percent}%`;
-
-        const motivateText = document.getElementById('motivate');
-        if (percent >= 100) motivateText.innerText = "🎉 目标达成！太棒了！";
-        else if (percent > 0) motivateText.innerText = "🚀 正在轨道上，继续保持！";
-        else motivateText.innerText = "🏁 设定好目标，存入第一笔吧！";
-
-        renderLogs();
-        renderGoals();
-        renderChart(appData.logs);
+        renderLogs(); renderGoals(); renderChart();
     }
 
     function renderLogs() {
-        const list = document.getElementById('logList');
-        list.innerHTML = '';
-        const recentLogs = [...appData.logs].sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
-        recentLogs.forEach(log => {
+        const list = document.getElementById('logList'); list.innerHTML = '';
+        [...appData.logs].sort((a,b) => b.timestamp - a.timestamp).slice(0,5).forEach(l => {
             const li = document.createElement('li');
-            li.innerHTML = `<span style="color:var(--text-sub)">${new Date(log.timestamp).toLocaleDateString()}</span><span class="log-amount">+¥${log.amount}</span>`;
+            li.innerHTML = `<span>${new Date(l.timestamp).toLocaleDateString()}</span><span style="color:var(--primary);font-weight:bold">+${l.amount}</span>`;
             list.appendChild(li);
         });
     }
 
     function renderGoals() {
-        const list = document.getElementById('goalsList');
-        list.innerHTML = '';
-        appData.goals.forEach((g, index) => {
+        const list = document.getElementById('goalsList'); list.innerHTML = '';
+        appData.goals.forEach((g, i) => {
             const li = document.createElement('li');
-            li.innerHTML = `<span>${g.name}</span><span style="color:var(--text-sub)">¥${g.cost}</span><button onclick="removeGoal(${index})" style="padding:6px 10px;margin-left:10px; width:auto; font-size:0.8rem;" class="secondary">删除</button>`;
+            li.innerHTML = `<span>${g.name}</span><span>¥${g.cost}</span><button class="secondary" onclick="removeGoal(${i})" style="width:auto;padding:4px 8px;font-size:0.8rem">×</button>`;
             list.appendChild(li);
         });
     }
 
-    // === 5. Chart.js 图表 ===
-    function renderChart(logs) {
+    function renderChart() {
         const ctx = document.getElementById('growthChart').getContext('2d');
-        const sortedLogs = [...logs].sort((a, b) => a.timestamp - b.timestamp);
-        
-        const labels = [];
-        const dataPoints = [];
-        let cumulative = 0;
-
-        sortedLogs.forEach(log => {
-            const dateStr = new Date(log.timestamp).toLocaleDateString();
-            cumulative += Number(log.amount);
-            if (!labels.includes(dateStr)) {
-                labels.push(dateStr);
-                dataPoints.push(cumulative);
-            } else {
-                dataPoints[dataPoints.length - 1] = cumulative;
-            }
+        const sorted = [...appData.logs].sort((a,b) => a.timestamp - b.timestamp);
+        const labels = []; const data = []; let acc = 0;
+        sorted.forEach(l => {
+            acc += Number(l.amount);
+            const d = new Date(l.timestamp).toLocaleDateString();
+            if(!labels.includes(d)) { labels.push(d); data.push(acc); }
+            else { data[data.length-1] = acc; }
         });
 
-        if (growthChartInstance) growthChartInstance.destroy();
-
+        if (chartInstance) chartInstance.destroy();
         const style = getComputedStyle(document.documentElement);
-        const gridColor = style.getPropertyValue('--chart-grid').trim();
-        const textColor = style.getPropertyValue('--text-sub').trim();
-        const primaryColor = style.getPropertyValue('--primary').trim();
-
-        growthChartInstance = new Chart(ctx, {
+        chartInstance = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: labels,
+                labels,
                 datasets: [{
-                    label: '资产累计',
-                    data: dataPoints,
-                    borderColor: primaryColor,
-                    backgroundColor: primaryColor + '20',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 2
+                    data, borderColor: style.getPropertyValue('--primary').trim(),
+                    backgroundColor: style.getPropertyValue('--primary').trim()+'20',
+                    fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: {display: false} },
-                scales: {
-                    x: { 
-                        display: labels.length > 1, 
-                        grid: { display: false },
-                        ticks: { color: textColor, maxTicksLimit: 5 }
-                    },
-                    y: { 
-                        beginAtZero: true, 
-                        grid: { color: gridColor },
-                        ticks: { color: textColor }
-                    }
-                }
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: {display:false} },
+                scales: { x: { display: false }, y: { grid: { display: false } } }
             }
         });
     }
 
-    // === 6. 事件监听 ===
-    function setupEventListeners() {
-        document.getElementById('addDeposit').addEventListener('click', () => {
-            const input = document.getElementById('depositAmount');
-            const amount = Number(input.value);
-            if (amount <= 0) return alert("请输入有效金额");
-            appData.logs.push({ amount, timestamp: Date.now() });
-            input.value = '';
-            saveData();
-            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    function initTheme() {
+        const saved = localStorage.getItem(THEME_KEY) || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggleBtn').innerText = saved === 'dark' ? '🌙' : '🌞';
+        document.getElementById('themeToggleBtn').onclick = () => {
+            const n = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', n);
+            localStorage.setItem(THEME_KEY, n);
+            document.getElementById('themeToggleBtn').innerText = n === 'dark' ? '🌙' : '🌞';
+            renderChart();
+        };
+    }
+
+    function setupEvents() {
+        document.getElementById('addDeposit').onclick = () => {
+            const v = Number(document.getElementById('depositAmount').value);
+            if(v > 0) {
+                appData.logs.push({ amount: v, timestamp: Date.now() });
+                saveData(); document.getElementById('depositAmount').value = '';
+                confetti({ particleCount: 60, spread: 60, origin: { y: 0.6 } });
+            }
+        };
+
+        ['dailyAmount','startDate','endDate'].forEach(id => {
+            document.getElementById(id).addEventListener('input', calcTotal);
         });
 
-        document.getElementById('saveConfig').addEventListener('click', () => {
+        document.getElementById('saveConfig').onclick = () => {
             appData.config.daily = document.getElementById('dailyAmount').value;
             appData.config.target = document.getElementById('targetAmount').value;
             appData.config.start = document.getElementById('startDate').value;
             appData.config.end = document.getElementById('endDate').value;
             appData.config.theme = document.getElementById('theme').value;
-            saveData();
-            alert("设置已更新 ✅");
-        });
+            saveData(); alert('设置已保存');
+        };
 
-        document.getElementById('addGoalBtn').addEventListener('click', () => {
-            const name = document.getElementById('goalName').value;
-            const cost = document.getElementById('goalTarget').value;
-            if(name && cost) {
-                appData.goals.push({name, cost});
-                document.getElementById('goalName').value = '';
-                document.getElementById('goalTarget').value = '';
-                saveData();
-            }
-        });
+        document.getElementById('addGoalBtn').onclick = () => {
+            const n = document.getElementById('goalName').value, c = document.getElementById('goalTarget').value;
+            if(n && c) { appData.goals.push({name:n, cost:c}); saveData(); document.getElementById('goalName').value=''; document.getElementById('goalTarget').value=''; }
+        };
 
-        document.getElementById('resetAll').addEventListener('click', () => {
-            if(confirm("确定要清空所有数据吗？")) {
-                localStorage.removeItem(APP_KEY);
-                location.reload();
-            }
-        });
-        
-        document.getElementById('cloudLogin').addEventListener('click', () => alert("需配置 Supabase Key"));
+        document.getElementById('resetAll').onclick = () => { if(confirm('确定清空？')) { localStorage.removeItem(APP_KEY); location.reload(); } };
     }
 
-    window.removeGoal = function(index) {
-        appData.goals.splice(index, 1);
-        saveData();
+    function calcTotal() {
+        const d = document.getElementById('dailyAmount').value, s = new Date(document.getElementById('startDate').value), e = new Date(document.getElementById('endDate').value);
+        const h = document.getElementById('calcHint');
+        if(d && s && e && e > s) {
+            const days = Math.ceil((e-s)/86400000) + 1;
+            const t = days * d;
+            document.getElementById('targetAmount').value = t;
+            h.style.display = 'block'; h.innerHTML = `自动计算: ${days}天 × ¥${d} = <strong>¥${t}</strong>`;
+        } else h.style.display = 'none';
     }
+    window.removeGoal = (i) => { appData.goals.splice(i,1); saveData(); };
 </script>
 </body>
 </html>
